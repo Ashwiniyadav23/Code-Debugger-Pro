@@ -99,8 +99,14 @@
   <script>
     const debugBtn = document.getElementById('debugBtn');
     const resultEl = document.getElementById('result');
+    let canRequest = true;  // To prevent spamming requests
 
     debugBtn.addEventListener('click', async () => {
+      if (!canRequest) {
+        alert('Please wait a few seconds before trying again.');
+        return;
+      }
+
       const language = document.getElementById('language').value;
       const code = document.getElementById('code').value.trim();
 
@@ -109,19 +115,21 @@
         return;
       }
 
+      canRequest = false;  // Block new requests for cooldown
       debugBtn.disabled = true;
       resultEl.textContent = 'Debugging in progress... Please wait.';
 
       try {
-        const response = await fetch('http://localhost:3000/api/debug', {
+        const response = await fetch('https://code-debugger-pro.vercel.app/api/debug', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ code, language })
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code, language }),
         });
 
         if (!response.ok) {
+          if (response.status === 429) {
+            throw new Error('Too many requests. Please wait and try again later.');
+          }
           throw new Error(`Server error: ${response.status} ${response.statusText}`);
         }
 
@@ -129,9 +137,11 @@
         resultEl.textContent = data.message || 'No response from AI.';
       } catch (error) {
         resultEl.textContent = `Error: ${error.message}`;
+      } finally {
+        debugBtn.disabled = false;
+        // Allow new request after 10 seconds cooldown
+        setTimeout(() => { canRequest = true; }, 10000);
       }
-
-      debugBtn.disabled = false;
     });
   </script>
 
