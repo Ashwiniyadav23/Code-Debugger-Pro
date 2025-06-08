@@ -1,9 +1,15 @@
 {
+    "version": 2,
+    "rewrites": [
+      { "source": "/", "destination": "/index.html" }
+    ]
+  }
+  
   "version": 2,
   "builds": [
-    { "src": "api/debug.js", "use": "@vercel/node" }
+    { "src": "debug.js", "use": "@vercel/node" }
   ],
   "routes": [
-    { "src": "/api/debug", "dest": "api/debug.js" }
+    { "src": "/(.*)", "dest": "debug.js" }
   ]
 }
