@@ -1,14 +1,20 @@
 export default async function handler(req, res) {
-  // Allow CORS from specific frontend
+  // CORS headers
   res.setHeader('Access-Control-Allow-Origin', 'https://code-debugger-frontend.vercel.app');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  // Handle preflight request
+  // Handle preflight
   if (req.method === 'OPTIONS') {
     return res.status(204).end();
   }
 
+  // Health check for deployment
+  if (req.method === 'GET') {
+    return res.status(200).json({ message: 'API is working!' });
+  }
+
+  // Handle debugging
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
