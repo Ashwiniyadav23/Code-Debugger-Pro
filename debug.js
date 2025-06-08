@@ -4,9 +4,13 @@ const express = require('express');
 const cors = require('cors');
 
 const app = express();
-app.use(cors({
-  origin: 'https://code-debugger-frontend.vercel.app',
-}));
+app.options('/api/debug', (req, res) => {
+  res.set('Access-Control-Allow-Origin', 'https://code-debugger-frontend.vercel.app');
+  res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type');
+  res.sendStatus(200);
+});
+
 
 app.use(express.json());
 
