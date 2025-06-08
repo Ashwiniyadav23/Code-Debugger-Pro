@@ -1,12 +1,15 @@
 export default async function handler(req, res) {
+  // Allow CORS from your frontend
   res.setHeader('Access-Control-Allow-Origin', 'https://code-debugger-frontend.vercel.app');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
+  // Handle preflight
   if (req.method === 'OPTIONS') {
     return res.status(204).end();
   }
 
+  // Only allow POST
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
@@ -40,9 +43,9 @@ export default async function handler(req, res) {
       return res.status(response.status).json({ error: data });
     }
 
-    res.status(200).json({ message: data.choices?.[0]?.message?.content || 'No answer from AI' });
+    res.status(200).json({ message: data.choices?.[0]?.message?.content || 'No response from AI' });
   } catch (err) {
-    console.error('Server error:', err);
+    console.error('Error:', err);
     res.status(500).json({ error: err.message });
   }
 }
