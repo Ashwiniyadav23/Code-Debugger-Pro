@@ -10,17 +10,16 @@ app.use(express.json());
 
 const fetch = global.fetch || require('node-fetch');
 
-console.log('OPENAI_API_KEY loaded?', !!process.env.OPENAI_API_KEY);
-
-// ✅ Root route to check if deployed API is working
+// Optional health check route
 app.get('/', (req, res) => {
-  res.send('✅ API is working!');
+  res.send('✅ AI Debugger API is working!');
 });
 
 app.post('/api/debug', async (req, res) => {
   const { code, language } = req.body;
+
   if (!code || !language) {
-    return res.status(400).json({ error: 'Code and language required' });
+    return res.status(400).json({ error: 'Code and language are required' });
   }
 
   const prompt = `Debug this ${language} code:\n\n${code}`;
@@ -46,13 +45,12 @@ app.post('/api/debug', async (req, res) => {
     }
 
     const data = await response.json();
-    res.json({ message: data.choices?.[0]?.message?.content || 'No answer' });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+    const aiResponse = data.choices?.[0]?.message?.content || 'No response from model';
+    res.json({ message: aiResponse });
+
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
-});
+module.exports = app;
