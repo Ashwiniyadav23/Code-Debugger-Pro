@@ -2,9 +2,18 @@ let requestCounts = {};
 const WINDOW_SIZE_IN_MINUTES = 1;
 const MAX_REQUESTS_PER_WINDOW = 5;
 
+const allowedOrigins = [
+  'https://code-debugger-frontend.vercel.app',
+  'https://ashwiniyadav23.github.io',
+];
+
 export default async function handler(req, res) {
-  // CORS headers
-  res.setHeader('Access-Control-Allow-Origin', 'https://code-debugger-frontend.vercel.app');
+  const origin = req.headers.origin;
+
+  // Allow CORS only for allowed origins dynamically
+  if (allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
