@@ -3,10 +3,25 @@ const allowedOrigins = [
   'https://ashwiniyadav23.github.io',
 ];
 
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchWithRetry(url, options, retries = 3, delayMs = 2000) {
+  for (let i = 0; i < retries; i++) {
+    const response = await fetch(url, options);
+    if (response.status !== 429) {
+      return response;
+    }
+    await delay(delayMs);
+    delayMs *= 2; 
+  }
+  throw new Error('OpenAI rate limit exceeded after retries');
+}
+
 export default async function handler(req, res) {
   const origin = req.headers.origin;
 
-  // CORS header - allow only allowed origins dynamically
   if (allowedOrigins.includes(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
   }
@@ -25,23 +40,17 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  // Extract IP safely
+  // Rate limiter DISABLED for testing
+  // Enable this if you want later:
+  /*
   const ipRaw = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
   const ip = ipRaw.split(',')[0].trim();
-
-  // === RATE LIMITING DISABLED FOR TESTING ===
-  // Uncomment below code to enable rate limiting
-
-  /*
-  const WINDOW_SIZE_IN_MINUTES = 1;
-  const MAX_REQUESTS_PER_WINDOW = 5;
-
   if (!requestCounts[ip]) {
     requestCounts[ip] = { count: 1, startTime: Date.now() };
   } else {
-    const timeElapsed = (Date.now() - requestCounts[ip].startTime) / 60000; // minutes
-    if (timeElapsed < WINDOW_SIZE_IN_MINUTES) {
-      if (requestCounts[ip].count >= MAX_REQUESTS_PER_WINDOW) {
+    const timeElapsed = (Date.now() - requestCounts[ip].startTime) / 60000;
+    if (timeElapsed < 1) {
+      if (requestCounts[ip].count >= 5) {
         console.log(`Rate limiter blocking IP ${ip}`);
         return res.status(429).json({ error: 'Too many requests, please wait a minute.' });
       }
@@ -50,7 +59,6 @@ export default async function handler(req, res) {
       requestCounts[ip] = { count: 1, startTime: Date.now() };
     }
   }
-  console.log(`IP: ${ip}, Count: ${requestCounts[ip].count}`);
   */
 
   const { code, language } = req.body;
@@ -62,34 +70,36 @@ export default async function handler(req, res) {
   const prompt = `Debug this ${language} code:\n\n${code}`;
 
   try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o',
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0,
-        max_tokens: 700,
-      }),
-    });
+    const response = await fetchWithRetry(
+      'https://api.openai.com/v1/chat/completions',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o',
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0,
+          max_tokens: 700,
+        }),
+      }
+    );
 
-    if (response.status === 429) {
-      console.log('OpenAI API rate limit exceeded');
-      return res.status(429).json({ error: 'OpenAI rate limit exceeded. Please try again later.' });
+    if (!response.ok) {
+      const data = await response.json();
+      return res.status(response.status).json({ error: data });
     }
 
     const data = await response.json();
 
-    if (!response.ok) {
-      return res.status(response.status).json({ error: data });
-    }
-
     res.status(200).json({ message: data.choices?.[0]?.message?.content || 'No response from AI' });
   } catch (err) {
     console.error('Error:', err);
+    if (err.message.includes('rate limit')) {
+      return res.status(429).json({ error: err.message });
+    }
     res.status(500).json({ error: err.message });
   }
 }
