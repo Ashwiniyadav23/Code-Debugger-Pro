@@ -1,25 +1,24 @@
-const path = require('path');
-require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
-const express = require('express');
-const cors = require('cors');
+const fetch = require('node-fetch'); // If you're using Node 18+, this is built-in
 
-const app = express();
-app.options('/api/debug', (req, res) => {
-  res.set('Access-Control-Allow-Origin', 'https://code-debugger-frontend.vercel.app');
-  res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.set('Access-Control-Allow-Headers', 'Content-Type');
-  res.sendStatus(200);
-});
+module.exports = async function handler(req, res) {
+  // CORS Headers
+  res.setHeader('Access-Control-Allow-Origin', 'https://code-debugger-frontend.vercel.app');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    return res.status(204).end(); // No content needed
+  }
 
-app.use(express.json());
+  // Reject non-POST methods
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method Not Allowed' });
+  }
 
-console.log('OPENAI_API_KEY loaded?', !!process.env.OPENAI_API_KEY);
-
-const fetch = global.fetch || require('node-fetch');
-
-app.post('/api/debug', async (req, res) => {
+  // Extract code and language from request body
   const { code, language } = req.body;
+
   if (!code || !language) {
     return res.status(400).json({ error: 'Code and language required' });
   }
@@ -47,13 +46,8 @@ app.post('/api/debug', async (req, res) => {
     }
 
     const data = await response.json();
-    res.json({ message: data.choices?.[0]?.message?.content || 'No answer' });
+    res.status(200).json({ message: data.choices?.[0]?.message?.content || 'No answer from model' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
-});
-
-module.exports = (req, res) => {
-  res.status(200).json({ message: "API is working!" });
 };
-
