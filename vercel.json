@@ -1,7 +1,9 @@
 {
-    "version": 2,
-    "rewrites": [
-      { "source": "/", "destination": "/index.html" }
-    ]
-  }
-  
+  "version": 2,
+  "builds": [
+    { "src": "debug.js", "use": "@vercel/node" }
+  ],
+  "routes": [
+    { "src": "/(.*)", "dest": "debug.js" }
+  ]
+}
