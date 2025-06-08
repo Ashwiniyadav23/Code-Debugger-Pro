@@ -1,14 +1,27 @@
-export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 
-  if (req.method === 'OPTIONS') return res.status(204).end();
-  if (req.method === 'GET') return res.status(200).json({ message: 'API is working!' });
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
+const express = require('express');
+const cors = require('cors');
 
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+const fetch = global.fetch || require('node-fetch');
+
+console.log('OPENAI_API_KEY loaded?', !!process.env.OPENAI_API_KEY);
+
+// ✅ Root route to check if deployed API is working
+app.get('/', (req, res) => {
+  res.send('✅ API is working!');
+});
+
+app.post('/api/debug', async (req, res) => {
   const { code, language } = req.body;
-  if (!code || !language) return res.status(400).json({ error: 'Code and language required' });
+  if (!code || !language) {
+    return res.status(400).json({ error: 'Code and language required' });
+  }
 
   const prompt = `Debug this ${language} code:\n\n${code}`;
 
@@ -17,10 +30,10 @@ export default async function handler(req, res) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
       },
       body: JSON.stringify({
-        model: 'gpt-4o',
+        model: 'gpt-4o-mini',
         messages: [{ role: 'user', content: prompt }],
         temperature: 0,
         max_tokens: 700,
@@ -28,15 +41,18 @@ export default async function handler(req, res) {
     });
 
     if (!response.ok) {
-      const data = await response.json();
-      console.log('OpenAI error', data);
-      return res.status(response.status).json({ error: data });
+      const errorText = await response.text();
+      return res.status(response.status).json({ error: `OpenAI error: ${errorText}` });
     }
 
     const data = await response.json();
-    return res.status(200).json({ message: data.choices?.[0]?.message?.content || 'No response from AI' });
-  } catch (err) {
-    console.error('Error:', err);
-    return res.status(500).json({ error: err.message });
+    res.json({ message: data.choices?.[0]?.message?.content || 'No answer' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
-}
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
+});
