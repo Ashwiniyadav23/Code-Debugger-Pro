@@ -1,6 +1,6 @@
 let requestCounts = {};
 const WINDOW_SIZE_IN_MINUTES = 1;
-const MAX_REQUESTS_PER_WINDOW = 5;
+const MAX_REQUESTS_PER_WINDOW = 20;  // increased limit for testing
 
 const allowedOrigins = [
   'https://code-debugger-frontend.vercel.app',
@@ -10,7 +10,7 @@ const allowedOrigins = [
 export default async function handler(req, res) {
   const origin = req.headers.origin;
 
-  // Allow CORS only for allowed origins dynamically
+  // CORS header - allow only allowed origins dynamically
   if (allowedOrigins.includes(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
   }
@@ -27,20 +27,22 @@ export default async function handler(req, res) {
     return res.status(200).json({ message: 'API is working!' });
   }
 
-  // Only allow POST for debugging
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  // Basic rate limiter by IP (in-memory, resets on redeploy)
-  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  // Extract IP safely for rate limiting
+  const ipRaw = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
+  const ip = ipRaw.split(',')[0].trim();
 
+  // -- RATE LIMITING START --
   if (!requestCounts[ip]) {
     requestCounts[ip] = { count: 1, startTime: Date.now() };
   } else {
     const timeElapsed = (Date.now() - requestCounts[ip].startTime) / 60000; // minutes
     if (timeElapsed < WINDOW_SIZE_IN_MINUTES) {
       if (requestCounts[ip].count >= MAX_REQUESTS_PER_WINDOW) {
+        console.log(`Rate limit exceeded for IP ${ip}`);
         return res.status(429).json({ error: 'Too many requests, please wait a minute.' });
       }
       requestCounts[ip].count++;
@@ -49,6 +51,8 @@ export default async function handler(req, res) {
       requestCounts[ip] = { count: 1, startTime: Date.now() };
     }
   }
+  console.log(`IP: ${ip}, Count: ${requestCounts[ip].count}`);
+  // -- RATE LIMITING END --
 
   const { code, language } = req.body;
 
@@ -74,7 +78,6 @@ export default async function handler(req, res) {
     });
 
     if (response.status === 429) {
-      // OpenAI rate limit hit
       return res.status(429).json({ error: 'OpenAI rate limit exceeded. Please try again later.' });
     }
 
