@@ -4,7 +4,10 @@ const express = require('express');
 const cors = require('cors');
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: 'https://code-debugger-frontend.vercel.app',
+}));
+
 app.use(express.json());
 
 console.log('OPENAI_API_KEY loaded?', !!process.env.OPENAI_API_KEY);
