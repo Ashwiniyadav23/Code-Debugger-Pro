@@ -1,15 +1,12 @@
 {
-    "version": 2,
-    "rewrites": [
-      { "source": "/", "destination": "/index.html" }
-    ]
-  }
-  
   "version": 2,
+  "rewrites": [
+    { "source": "/", "destination": "/index.html" }
+  ],
   "builds": [
-    { "src": "debug.js", "use": "@vercel/node" }
+    { "src": "/debug.js", "use": "@vercel/node" }
   ],
   "routes": [
-    { "src": "/(.*)", "dest": "debug.js" }
+    { "src": "/debug", "dest": "debug.js" }
   ]
 }
