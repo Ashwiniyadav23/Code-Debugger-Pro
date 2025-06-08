@@ -3,18 +3,25 @@ const allowedOrigins = [
   'https://ashwiniyadav23.github.io',
 ];
 
+const WINDOW_SIZE_IN_MINUTES = 1;
+const MAX_REQUESTS_PER_WINDOW = 5;
+const requestCounts = {};
+
+// Delay helper
 function delay(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+  return new Promise((res) => setTimeout(res, ms));
 }
 
+// Fetch with retry helper
 async function fetchWithRetry(url, options, retries = 3, delayMs = 2000) {
   for (let i = 0; i < retries; i++) {
     const response = await fetch(url, options);
     if (response.status !== 429) {
       return response;
     }
+    console.log(`OpenAI rate limit hit, retrying in ${delayMs}ms...`);
     await delay(delayMs);
-    delayMs *= 2; 
+    delayMs *= 2; // exponential backoff
   }
   throw new Error('OpenAI rate limit exceeded after retries');
 }
@@ -40,17 +47,16 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  // Rate limiter DISABLED for testing
-  // Enable this if you want later:
-  /*
+  // Rate limiting per IP
   const ipRaw = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
   const ip = ipRaw.split(',')[0].trim();
+
   if (!requestCounts[ip]) {
     requestCounts[ip] = { count: 1, startTime: Date.now() };
   } else {
     const timeElapsed = (Date.now() - requestCounts[ip].startTime) / 60000;
-    if (timeElapsed < 1) {
-      if (requestCounts[ip].count >= 5) {
+    if (timeElapsed < WINDOW_SIZE_IN_MINUTES) {
+      if (requestCounts[ip].count >= MAX_REQUESTS_PER_WINDOW) {
         console.log(`Rate limiter blocking IP ${ip}`);
         return res.status(429).json({ error: 'Too many requests, please wait a minute.' });
       }
@@ -59,7 +65,7 @@ export default async function handler(req, res) {
       requestCounts[ip] = { count: 1, startTime: Date.now() };
     }
   }
-  */
+  console.log(`IP: ${ip} | Count: ${requestCounts[ip].count}`);
 
   const { code, language } = req.body;
 
